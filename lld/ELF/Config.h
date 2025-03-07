@@ -384,6 +384,7 @@ struct Config {
   bool zText;
   bool zRetpolineplt;
   bool zWxneeded;
+  bool zMemorySeal;
   DiscardPolicy discard;
   GnuStackKind zGnustack;
   ICFLevel icf;

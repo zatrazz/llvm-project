@@ -45,6 +45,8 @@
 #include <cinttypes>
 #include <cstdlib>
 
+#define DEBUG_TYPE "lld"
+
 using namespace llvm;
 using namespace llvm::dwarf;
 using namespace llvm::ELF;
@@ -330,11 +332,18 @@ void GnuPropertySection::writeTo(uint8_t *buf) {
   write32(ctx, buf + 8, NT_GNU_PROPERTY_TYPE_0); // Type
   memcpy(buf + 12, "GNU", 4);               // Name string
 
+
+  unsigned offset = 16;
+
+  if (ctx.arg.zMemorySeal) {
+    write32(ctx, buf + offset + 0, GNU_PROPERTY_MEMORY_SEAL); // Feature type
+    write32(ctx, buf + offset + 4, 0);                        // Feature size
+    offset += 8;
+  }
+
   uint32_t featureAndType = ctx.arg.emachine == EM_AARCH64
                                 ? GNU_PROPERTY_AARCH64_FEATURE_1_AND
                                 : GNU_PROPERTY_X86_FEATURE_1_AND;
-
-  unsigned offset = 16;
   if (ctx.arg.andFeatures != 0) {
     write32(ctx, buf + offset + 0, featureAndType);      // Feature type
     write32(ctx, buf + offset + 4, 4);                   // Feature size
@@ -356,6 +365,8 @@ size_t GnuPropertySection::getSize() const {
   uint32_t contentSize = 0;
   if (ctx.arg.andFeatures != 0)
     contentSize += ctx.arg.is64 ? 16 : 12;
+  if (ctx.arg.zMemorySeal)
+    contentSize += 8;
   if (!ctx.aarch64PauthAbiCoreInfo.empty())
     contentSize += 4 + 4 + ctx.aarch64PauthAbiCoreInfo.size();
   assert(contentSize != 0);
@@ -4944,7 +4955,7 @@ template <class ELFT> void elf::createSyntheticSections(Ctx &ctx) {
   ctx.in.iplt = std::make_unique<IpltSection>(ctx);
   add(*ctx.in.iplt);
 
-  if (ctx.arg.andFeatures || !ctx.aarch64PauthAbiCoreInfo.empty()) {
+  if (ctx.arg.andFeatures || ctx.arg.zMemorySeal || !ctx.aarch64PauthAbiCoreInfo.empty()) {
     ctx.in.gnuProperty = std::make_unique<GnuPropertySection>(ctx);
     add(*ctx.in.gnuProperty);
   }
